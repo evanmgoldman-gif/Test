@@ -138,6 +138,20 @@ details.past-wrap summary { cursor: pointer; padding: 14px 18px; font-weight: 60
 .check li.auto { color: var(--warn); }
 .check .done { text-decoration: line-through; color: var(--muted); }
 .notes { white-space: pre-wrap; margin: 0; }
+.dayplan { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; }
+.dayplan.today { border-color: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+.dayplan header { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.dayplan header b { font-family: var(--display); font-size: 17px; font-weight: 700; }
+.cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 18px; margin: 0; }
+.cells .wide { grid-column: 1 / -1; }
+.cells dd.none { color: var(--muted); }
+.cells div { min-width: 0; display: grid; gap: 2px; align-content: start; }
+.cells dt { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.cells dd { margin: 0; overflow-wrap: anywhere; font-size: 14px; }
+.conf { font-family: var(--mono); font-size: 12.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; color: var(--ink); }
+.conf:hover { border-color: var(--accent); }
+.also { border-top: 1px dashed var(--line); padding-top: 8px; font-size: 13.5px; color: var(--muted); display: grid; gap: 3px; }
+.also b { color: var(--ink); font-weight: 500; }
 .empty { border: 1px dashed var(--line); border-radius: 12px; padding: 18px; color: var(--muted); }
 
 /* forms */
@@ -167,6 +181,7 @@ form.f .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
 }
 @media (max-width: 560px) {
   .grid3 { gap: 8px; }
+  .cells { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tile { padding: 10px 12px; }
   .tile .chip { white-space: normal; }
   form.f { grid-template-columns: minmax(0, 1fr); }
@@ -364,7 +379,12 @@ form.f .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
         '<div class="tile"><span class="eyebrow">Hotel</span><div>' + fieldChip(t.hotel) + "</div>" + (costTxt(t.hotelCost) || '<span class="cost">—</span>') + "</div></section>";
     }
 
-    h += '<div class="split"><section class="col"><div class="bar"><h2>Itinerary</h2>' + (state.canEdit && !state.addRes ? '<button type="button" class="btn small" data-act="add-res">Add reservation</button>' : "") + "</div>";
+    var plan = (DATA.plans || {})[t.id], tab = plan ? (state.tab || "plan") : "bookings";
+    h += '<div class="split"><section class="col"><div class="bar">' + (plan
+      ? '<div class="seg" role="group" aria-label="Itinerary view"><button type="button" data-tab="plan" aria-pressed="' + (tab === "plan") + '">Day by day</button><button type="button" data-tab="bookings" aria-pressed="' + (tab === "bookings") + '">Bookings (' + res.length + ")</button></div>"
+      : "<h2>Itinerary</h2>") + (state.canEdit && !state.addRes && tab === "bookings" ? '<button type="button" class="btn small" data-act="add-res">Add reservation</button>' : "") + "</div>";
+    if (tab === "plan") { h += planHtml(t, plan); }
+    else {
     if (state.addRes) h += resForm(t);
     if (!res.length) h += '<div class="empty">No reservations on file for this trip yet. When booking emails arrive, Claude adds the flights, hotels, cars and confirmations here.</div>';
     var byDay = {}, order = [];
@@ -372,6 +392,7 @@ form.f .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
     order.forEach(function (k) {
       h += '<div class="day"><div class="eyebrow">' + (k === "zz" ? "Date not set" : esc(fmtDay(k))) + "</div>" + byDay[k].map(function (r) { return stub(r); }).join("") + "</div>";
     });
+    }
     h += '</section><aside class="col">';
 
     var auto = openItems(t), list = t.checklist || [];
@@ -387,6 +408,46 @@ form.f .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
     if (state.canEdit && !state.editTrip) h += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-act="edit-trip">Edit trip details</button></div>';
     h += "</aside></div>" + footer();
     app.innerHTML = h;
+  }
+
+  function confKey(r) { return String(r.confirmation || "").split(/\s/)[0]; }
+  function norm(s) { return String(s || "").toLowerCase().replace(/[’`]/g, "'"); }
+  function mentioned(r, txt) {
+    var k = confKey(r);
+    if (k && txt.indexOf(k) >= 0) return true;
+    var f = /^([A-Z0-9]{2})\s?(\d{1,4})\b/.exec(r.title || "");
+    if (f && txt.replace(/\s/g, "").indexOf(f[1] + f[2]) >= 0) return true;
+    var words = norm(r.title).replace(/[^a-z0-9' ]/g, " ").split(/\s+/).filter(Boolean);
+    return words.length >= 2 && norm(txt).indexOf(words[0] + " " + words[1]) >= 0;
+  }
+  function cell(text, res) {
+    var s = String(text || "").trim();
+    if (!s || /^n\/?a$/i.test(s)) return "";
+    var out = esc(s);
+    res.forEach(function (r) {
+      var k = confKey(r);
+      if (k.length >= 5 && out.indexOf(k) >= 0) out = out.split(k).join('<button type="button" class="conf" data-copy="' + esc(k) + '" title="Copy">' + esc(k) + "</button>");
+    });
+    return out.replace(/\n/g, "<br>");
+  }
+  function planHtml(t, plan) {
+    var dates = {}; plan.days.forEach(function (d) { dates[d.date] = 1; });
+    var res = DATA.reservations.filter(function (r) { return (r.trip_id === t.id) || (r.start && dates[r.start.slice(0, 10)]); });
+    var now = today(), iso = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+    var used = {};
+    var h = plan.days.map(function (d) {
+      var txt = [d.travel, d.stay, d.activity, d.dining, d.notes].join(" ");
+      var cells = [["Travel", d.travel], ["Sleep", d.stay], ["Do", d.activity], ["Eat", d.dining]].map(function (c) {
+        var v = cell(c[1], res); return "<div><dt>" + c[0] + "</dt>" + (v ? "<dd>" + v + "</dd>" : '<dd class="none">—</dd>') + "</div>";
+      }).join("") + (cell(d.notes, res) ? '<div class="wide"><dt>Notes</dt><dd>' + cell(d.notes, res) + "</dd></div>" : "");
+      var also = res.filter(function (r) { return r.start && r.start.slice(0, 10) === d.date && !mentioned(r, txt); });
+      return '<article class="dayplan' + (d.date === iso ? " today" : "") + '"><header><b>' + esc(fmtDay(d.date)) + "</b>" + (d.city ? '<span class="chip">' + esc(d.city) + "</span>" : "") + (d.date === iso ? '<span class="chip ok">Today</span>' : "") + "</header>" +
+        (cells ? '<dl class="cells">' + cells + "</dl>" : '<p class="muted" style="margin:0">Nothing planned.</p>') +
+        (also.length ? '<div class="also"><span class="eyebrow">Also booked</span>' + also.map(function (r) {
+          return "<div><b>" + esc(r.title) + "</b>" + (fmtTime(r.start) ? " · " + esc(fmtTime(r.start)) : "") + (confKey(r) ? ' · <button type="button" class="conf" data-copy="' + esc(confKey(r)) + '">' + esc(confKey(r)) + "</button>" : "") + "</div>";
+        }).join("") + "</div>" : "") + "</article>";
+    }).join("");
+    return h + '<p class="foot" style="margin:0">From your outline “' + esc(plan.source || "") + "”. Tap a confirmation number to copy it. “Also booked” lists bookings from your email that the outline doesn’t mention.</p>";
   }
 
   function stub(r) {
@@ -448,9 +509,11 @@ form.f .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
     var b = e.target.closest("button, [data-filter]");
     if (!b) return;
     if (b.dataset.filter) { state.filter = b.dataset.filter; render(); return; }
+    if (b.dataset.tab) { state.tab = b.dataset.tab; state.addRes = false; render(); return; }
     if (b.dataset.copy) {
       var code = b.dataset.copy;
-      try { navigator.clipboard.writeText(code).then(function () { b.textContent = "Copied"; }, function () { selectCode(b); }); } catch (_) { selectCode(b); }
+      var done = function () { var was = b.textContent; b.textContent = "Copied"; setTimeout(function () { b.textContent = was; }, 1200); };
+      try { navigator.clipboard.writeText(code).then(done, function () { selectCode(b); }); } catch (_) { selectCode(b); }
       return;
     }
     var t = currentTrip();
@@ -477,7 +540,7 @@ form.f .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
         state.editTrip = true; location.hash = "trip-" + draftTrip.id; break;
     }
   });
-  function selectCode(b) { var c = b.parentNode.querySelector("code"); var r = document.createRange(); r.selectNodeContents(c); var s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Selected"; }
+  function selectCode(b) { var c = b.classList.contains("conf") ? b : b.parentNode.querySelector("code"); var r = document.createRange(); r.selectNodeContents(c); var s = getSelection(); s.removeAllRanges(); s.addRange(r); if (c !== b) b.textContent = "Selected"; }
 
   app.addEventListener("change", function (e) {
     var t = currentTrip();
@@ -509,7 +572,7 @@ form.f .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
       state.addRes = false; markDirty(); render();
     }
   });
-  window.addEventListener("hashchange", function () { state.editTrip = !!(draftTrip && location.hash === "#trip-" + draftTrip.id); state.addRes = false; if (!state.editTrip) draftTrip = null; render(); window.scrollTo(0, 0); });
+  window.addEventListener("hashchange", function () { state.editTrip = !!(draftTrip && location.hash === "#trip-" + draftTrip.id); state.addRes = false; state.tab = null; if (!state.editTrip) draftTrip = null; render(); window.scrollTo(0, 0); });
 
   function buildDocument() {
     var resetEl = document.head && document.head.querySelector("style");

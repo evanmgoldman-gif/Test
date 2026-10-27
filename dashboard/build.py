@@ -15,7 +15,10 @@ if orphans:
 today = datetime.date.today()
 alerts_path = os.path.join(HERE, "data", "alerts.json")
 alerts = json.load(open(alerts_path)) if os.path.exists(alerts_path) else []
-data = {"updated": today.strftime("%b ") + str(today.day) + today.strftime(", %Y"), "trips": trips, "reservations": reservations, "alerts": alerts}
+plans = {}
+for path in sorted(glob.glob(os.path.join(HERE, "data", "plans", "*.json"))):
+    plans[os.path.splitext(os.path.basename(path))[0]] = json.load(open(path))
+data = {"updated": today.strftime("%b ") + str(today.day) + today.strftime(", %Y"), "trips": trips, "reservations": reservations, "alerts": alerts, "plans": plans}
 blob = json.dumps(data, ensure_ascii=False, indent=1).replace("<", "\\u003c")
 html = open(os.path.join(HERE, "app.html")).read().replace("__TRIP_DATA__", blob, 1)
 os.makedirs(os.path.join(HERE, "dist"), exist_ok=True)
