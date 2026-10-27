@@ -1,0 +1,3 @@
+[
+ {"id":"2027-03-sample","start":"2027-03-12","end":"2027-03-14","destinations":["Example City, State"],"purpose":"Sample trip","kind":"family","parties":"Whole Family","car":"N/A","flight":"No","flightCost":"$____","hotel":"Yes","hotelCost":"$500","checklist":[{"t":"Pack chargers","done":false}],"notes":""}
+]

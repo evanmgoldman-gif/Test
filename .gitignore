@@ -1,0 +1,5 @@
+# Real travel data and the built page contain personal itineraries and
+# confirmation numbers. This repo is public, so they never get committed.
+dashboard/data/trips.json
+dashboard/data/reservations/
+dashboard/dist/
