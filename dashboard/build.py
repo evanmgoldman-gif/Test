@@ -13,7 +13,9 @@ if orphans:
     print("warning: reservations with unknown trip_id:", sorted({r.get("trip_id") for r in orphans}))
 
 today = datetime.date.today()
-data = {"updated": today.strftime("%b ") + str(today.day) + today.strftime(", %Y"), "trips": trips, "reservations": reservations}
+alerts_path = os.path.join(HERE, "data", "alerts.json")
+alerts = json.load(open(alerts_path)) if os.path.exists(alerts_path) else []
+data = {"updated": today.strftime("%b ") + str(today.day) + today.strftime(", %Y"), "trips": trips, "reservations": reservations, "alerts": alerts}
 blob = json.dumps(data, ensure_ascii=False, indent=1).replace("<", "\\u003c")
 html = open(os.path.join(HERE, "app.html")).read().replace("__TRIP_DATA__", blob, 1)
 os.makedirs(os.path.join(HERE, "dist"), exist_ok=True)

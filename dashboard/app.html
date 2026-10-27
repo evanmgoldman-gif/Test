@@ -78,8 +78,10 @@ button { cursor: pointer; }
 
 /* attention list */
 .attn { display: grid; gap: 10px; }
-.attn ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.attn a { text-decoration: none; }
+.alist { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 10px; }
+.alist > li { background: var(--warn-soft); border-radius: 10px; padding: 10px 14px; min-width: 0; }
+.alist a { text-decoration: none; color: var(--ink); }
+.alist ul { margin: 4px 0 0; padding-left: 18px; color: var(--warn); font-size: 13.5px; display: grid; gap: 2px; }
 
 /* toolbar */
 .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
@@ -244,6 +246,7 @@ form.f .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
     if (/^no\b/i.test(t.flight || "")) items.push(hasRes(t, "flight") ? "Flight found in email — update the doc field" : "Book flight");
     if (/^no\b/i.test(t.hotel || "")) items.push(hasRes(t, "hotel") ? "Hotel found in email — update the doc field" : "Book hotel");
     if (/_{2,}/.test((t.flightCost || "") + (t.hotelCost || ""))) items.push("Fill in cost");
+    (DATA.alerts || []).forEach(function (a) { if (a.trip_id === t.id) items.push(a.text); });
     return items;
   }
 
@@ -311,8 +314,8 @@ form.f .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
 
     var attention = all.filter(function (t) { return tripStatus(t) !== "past" && openItems(t).length; });
     if (attention.length) {
-      h += '<section class="attn"><h2>Still to book</h2><ul>' + attention.map(function (t) {
-        return '<li><a href="#trip-' + esc(t.id) + '" class="chip warn">' + esc(t.destinations[0]) + " · " + esc(MONTHS[pd(t.start).getMonth()] + " " + pd(t.start).getDate()) + " — " + esc(openItems(t).join(", ")) + "</a></li>";
+      h += '<section class="attn"><h2>Needs attention</h2><ul class="alist">' + attention.map(function (t) {
+        return '<li><a href="#trip-' + esc(t.id) + '"><b>' + esc(t.destinations[0]) + '</b> <span class="muted num">' + esc(MONTHS[pd(t.start).getMonth()] + " " + pd(t.start).getDate()) + '</span></a><ul>' + openItems(t).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></li>";
       }).join("") + "</ul></section>";
     }
 
